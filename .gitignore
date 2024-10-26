@@ -55,5 +55,8 @@ eng.traineddata
 
 .env
 
+uploads/
+
 id_rsa*
 .DS_STORE
+cert_key

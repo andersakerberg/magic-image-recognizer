@@ -1,0 +1,47 @@
+services:
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:ollama
+    container_name: open-webui
+    ports:
+      - "3000:8080"
+    volumes:
+      - ollama:/root/.ollama
+      - open-webui:/app/backend/data
+      - C:/Users/Mgs/Documents/Projects/llm/magic-image-recognizer/cert_key:/cert_key  # Ensure correct host path
+    environment:
+      - SSL_CERT_FILE=/cert_key/cert.pem  # Path to your certificate inside the container
+      - SSL_KEY_FILE=/cert_key/key.pem    # Path to your private key inside the container
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    restart: always
+
+  node-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        AZURE_COMPUTER_VISION_KEY: ${AZURE_COMPUTER_VISION_KEY}
+        AZURE_COMPUTER_VISION_ENDPOINT: ${AZURE_COMPUTER_VISION_ENDPOINT}
+        DUMMY_ARG: ${BUILD_ID}  # Add this line to force rebuild
+    container_name: node-app
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./app.js:/app/app.js
+      - ./public:/app/public
+      - C:/Users/Mgs/Documents/Projects/llm/magic-image-recognizer/cert_key:/cert_key
+    restart: always
+    env_file:
+      - .env  # Add this line to use the .env file
+    environment:
+      - SSL_CERT_FILE=/cert_key/cert.pem  # Path to your certificate
+      - SSL_KEY_FILE=/cert_key/key.pem    # Path to your private key
+
+volumes:
+  ollama:
+  open-webui:

@@ -8,6 +8,7 @@ const {
   ComputerVisionClient,
 } = require("@azure/cognitiveservices-computervision");
 const { ApiKeyCredentials } = require("@azure/ms-rest-js");
+const https = require('https'); // Add this line to require the https module
 
 const app = express();
 const port = 3001; // Changed port number to 3001
@@ -117,7 +118,7 @@ app.post("/upload", upload.single("image"), async (req, res) => {
       <body>
         <div class="container">
           <h1>Image Analysis Result</h1>
-          <img src="/${outputFilePath}" alt="Uploaded Image"/>
+          <img src="/${outputFilePath}" alt="Uploaded Image" style="max-width: 300px; height: auto;"/> <!-- Set max-width to 300px -->
           <p><strong>${description}</strong></p>
           <button class="button" onclick="window.history.back()">Back</button>
         </div>
@@ -127,10 +128,20 @@ app.post("/upload", upload.single("image"), async (req, res) => {
   } catch (error) {
     res.status(500).send("Error processing image");
   } finally {
-    // Clean up uploaded files
-    if (req.file) {
-      fs.unlinkSync(req.file.path);
-    }
+    // Check if the file is accessible
+    fs.access(req.file.path, fs.constants.W_OK, (err) => {
+      if (err) {
+        console.error(`No write permission for file ${req.file.path}:`, err.message);
+      } else {
+        // Asynchronously delete the uploaded file
+        fs.unlink(req.file.path, (err) => {
+          if (err) {
+            console.error(`Failed to delete file ${req.file.path}:`, err.message);
+          }
+        });
+      }
+    });
+
     // Schedule deletion of the uploads folder contents after 2 minutes
     setTimeout(deleteUploads, 2 * 60 * 1000);
   }
@@ -178,6 +189,13 @@ app.get("/", (req, res) => {
   `);
 });
 
-app.listen(port, () => {
-  console.log(`Server running at http://localhost:${port}`);
+// Load SSL certificate and key
+const sslOptions = {
+  key: fs.readFileSync(process.env.SSL_KEY_FILE), // Read the SSL key from the environment variable
+  cert: fs.readFileSync(process.env.SSL_CERT_FILE), // Read the SSL certificate from the environment variable
+};
+
+// Replace the existing app.listen with https.createServer
+https.createServer(sslOptions, app).listen(port, () => {
+  console.log(`Server running at https://localhost:${port}`);
 });
